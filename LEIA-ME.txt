@@ -1,0 +1,16 @@
+RESUMO DIÁRIO — FILTROS DINÂMICOS
+
+Abra o index.html via GitHub Pages ou servidor HTTP local.
+
+Fonte: ./Dados/DadosJson.json — lista de registros (ou objeto com obras: [...]).
+Campos: PARCEIRA, REFERENCIA, PEP, STATUS, MOTIVO / OBSERVAÇÃO, TIPO.
+Formatos aceitos para REFERENCIA: YYYY-MM-DD (preferível), DD/MM/YYYY, YYYY/MM/DD, timestamp ISO e número serial de data do Excel.
+
+Filtros: PARCEIRA, ANO, MÊS, SEMANA ISO (segunda a domingo), DIA.
+Combinação: todos os filtros ativos devem corresponder. Os seletores são atualizados em cascata.
+'Limpar filtros' retorna ao consolidado. A página consulta o JSON ao abrir e a cada 60 segundos; preserva seleção quando possível.
+Registros sem REFERENCIA válida aparecem no consolidado sem filtro de data, mas não nos recortes temporais.
+
+IMPORTANTE: o JSON incluído é o mesmo que estava no ZIP anterior, sem o novo campo REFERENCIA.
+Substitua o arquivo Dados/DadosJson.json pela sua versão mais recente para habilitar os filtros temporais.
+Não exponha informações corporativas restritas em GitHub Pages público.
