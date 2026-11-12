@@ -1,5 +1,5 @@
 /* Resumo Diário — atualização e filtros em memória.
- * REFERENCIA aceita YYYY-MM-DD, DD/MM/YYYY, YYYY/MM/DD e datas ISO com horário.
+ * REFERENCIA aceita YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY, números seriais Excel e ISO com horário.
  * Semana = ISO 8601 (segunda a domingo). Filtros combinados por interseção.
  */
 const URL_DADOS = './Dados/DadosJson.json';
@@ -12,6 +12,9 @@ const controles = { parceira: 'f-parceira', ano: 'f-ano', mes: 'f-mes', semana: 
 let registrosOriginais = [];
 let primeiraCarga = true;
 let geracaoConsulta = 0;
+// Cada filtro armazena um conjunto de opções; vazio significa "Todas".
+const selecoes = Object.fromEntries(Object.keys(controles).map(chave => [chave, new Set()]));
+let filtroAberto = null;
 
 function dataValida(ano, mes, dia) {
   const d = new Date(Date.UTC(ano, mes - 1, dia));
@@ -21,15 +24,15 @@ function dataValida(ano, mes, dia) {
 
 function interpretarData(valor) {
   if (valor == null || String(valor).trim() === '') return null;
-  if (typeof valor === 'number' && Number.isFinite(valor)) {
+  if ((typeof valor === 'number' && Number.isFinite(valor)) || (typeof valor === 'string' && /^\d{5}(?:\.\d+)?$/.test(valor.trim()))) {
     // Datas numéricas exportadas do Excel: dias desde 1899-12-30.
-    const d = new Date(Date.UTC(1899, 11, 30) + Math.floor(valor) * 86400000);
+    const d = new Date(Date.UTC(1899, 11, 30) + Math.floor(Number(valor)) * 86400000);
     return dataValida(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
   }
   const s = String(valor).trim();
   let m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s].*)?$/);
   if (m) return dataValida(+m[1], +m[2], +m[3]);
-  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s.*)?$/);
+  m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s.*)?$/);
   if (m) return dataValida(+m[3], +m[2], +m[1]);
   return null;
 }
@@ -58,42 +61,94 @@ function interpretarRegistro(item) {
   };
 }
 
-function valorFiltro(chave) { return el(controles[chave]).value; }
-function combina(registro, ignorar = '') {
-  const f = Object.fromEntries(Object.keys(controles).map(k => [k, valorFiltro(k)]));
-  return (!f.parceira || ignorar === 'parceira' || registro.parceira === f.parceira)
-    && (!f.ano || ignorar === 'ano' || String(registro.ano) === f.ano)
-    && (!f.mes || ignorar === 'mes' || String(registro.mes) === f.mes)
-    && (!f.semana || ignorar === 'semana' || String(registro.semana) === f.semana)
-    && (!f.dia || ignorar === 'dia' || registro.referencia === f.dia);
+// Dentro de um filtro, as opções selecionadas são combinadas por OU.
+// Entre filtros diferentes, aplica-se E (interseção).
+function combina(registro) {
+  return (!selecoes.parceira.size || selecoes.parceira.has(registro.parceira))
+    && (!selecoes.ano.size || selecoes.ano.has(String(registro.ano)))
+    && (!selecoes.mes.size || selecoes.mes.has(String(registro.mes)))
+    && (!selecoes.semana.size || selecoes.semana.has(String(registro.semana)))
+    && (!selecoes.dia.size || selecoes.dia.has(registro.referencia));
+}
+
+function resumoSelecao(chave, lista, formatar) {
+  const escolhidos = lista.filter(v => selecoes[chave].has(String(v)));
+  if (!escolhidos.length) return ({parceira:'Todas as parceiras',ano:'Todos os anos',mes:'Todos os meses',semana:'Todas as semanas',dia:'Todos os dias'})[chave];
+  if (escolhidos.length === 1) return formatar(escolhidos[0]);
+  return `${escolhidos.length} selecionados`;
+}
+
+function fecharMenus() {
+  Object.keys(controles).forEach(chave => {
+    const menu = el(`options-${chave}`);
+    menu.hidden = true;
+    el(controles[chave]).setAttribute('aria-expanded', 'false');
+  });
+  filtroAberto = null;
+}
+
+function alternarMenu(chave) {
+  const deveAbrir = filtroAberto !== chave;
+  fecharMenus();
+  if (deveAbrir) {
+    el(`options-${chave}`).hidden = false;
+    el(controles[chave]).setAttribute('aria-expanded','true');
+    filtroAberto = chave;
+  }
 }
 
 function atualizarOpcoes(chave, lista, formatar) {
-  const select = el(controles[chave]);
-  const anterior = select.value;
-  const titulo = {parceira:'Todas as parceiras', ano:'Todos os anos', mes:'Todos os meses', semana:'Todas as semanas', dia:'Todos os dias'}[chave];
-  select.replaceChildren(new Option(titulo,''));
-  lista.forEach(v => select.add(new Option(formatar(v), String(v))));
-  if (lista.some(v => String(v) === anterior)) select.value = anterior;
-  else select.value = '';
-  select.disabled = lista.length === 0;
+  const selecionados = selecoes[chave];
+  const validos = new Set(lista.map(String));
+  // Uma atualização do JSON só elimina escolhas que deixaram de existir na fonte.
+  for (const valor of selecionados) if (!validos.has(valor)) selecionados.delete(valor);
+  const menu = el(`options-${chave}`).querySelector('.multi-items');
+  const fragmento = document.createDocumentFragment();
+  for (const valor of lista) {
+    const texto = formatar(valor);
+    const item = document.createElement('label');
+    item.className = 'multi-option';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = String(valor);
+    checkbox.checked = selecionados.has(String(valor));
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) selecionados.add(checkbox.value);
+      else selecionados.delete(checkbox.value);
+      atualizarFiltros();
+      renderizar();
+    });
+    const span = document.createElement('span');
+    span.textContent = texto;
+    item.append(checkbox, span);
+    fragmento.append(item);
+  }
+  if (!lista.length) {
+    const aviso = document.createElement('span');
+    aviso.className = 'multi-empty';
+    aviso.textContent = 'Sem opções disponíveis';
+    fragmento.append(aviso);
+  }
+  menu.replaceChildren(fragmento);
+  const trigger = el(controles[chave]);
+  trigger.querySelector('.multi-text').textContent = resumoSelecao(chave,lista,formatar);
+  trigger.classList.toggle('has-selection',selecionados.size > 0);
+  trigger.disabled = lista.length === 0;
+  if (trigger.disabled && filtroAberto === chave) fecharMenus();
 }
 
 function atualizarFiltros() {
-  // Dependências em cascata: parceiro > ano > mês > semana > dia.
+  // Opções independentes: selecionar vários anos, meses, parceiras, semanas e dias
+  // não apaga escolhas de outros campos. A interseção só ocorre na apuração.
   const parceiros = [...new Set(registrosOriginais.map(r => r.parceira))].sort((a,b) => a.localeCompare(b,'pt-BR'));
+  const anos = [...new Set(registrosOriginais.map(r => r.ano).filter(Number.isInteger))].sort((a,b) => b-a);
+  const meses = [...new Set(registrosOriginais.map(r => r.mes).filter(Number.isInteger))].sort((a,b) => a-b);
+  const semanas = [...new Set(registrosOriginais.map(r => r.semana).filter(Number.isInteger))].sort((a,b) => a-b);
+  const dias = [...new Set(registrosOriginais.map(r => r.referencia).filter(Boolean))].sort();
   atualizarOpcoes('parceira', parceiros, v => v);
-  let elegiveis = registrosOriginais.filter(r => !valorFiltro('parceira') || r.parceira === valorFiltro('parceira'));
-  const anos = [...new Set(elegiveis.map(r => r.ano).filter(Number.isInteger))].sort((a,b) => b-a);
   atualizarOpcoes('ano', anos, v => String(v));
-  elegiveis = elegiveis.filter(r => !valorFiltro('ano') || String(r.ano) === valorFiltro('ano'));
-  const meses = [...new Set(elegiveis.map(r => r.mes).filter(Number.isInteger))].sort((a,b) => a-b);
   atualizarOpcoes('mes', meses, v => MESES[v-1]);
-  elegiveis = elegiveis.filter(r => !valorFiltro('mes') || String(r.mes) === valorFiltro('mes'));
-  const semanas = [...new Set(elegiveis.map(r => r.semana).filter(Number.isInteger))].sort((a,b) => a-b);
   atualizarOpcoes('semana', semanas, v => `Semana ${String(v).padStart(2,'0')}`);
-  elegiveis = elegiveis.filter(r => !valorFiltro('semana') || String(r.semana) === valorFiltro('semana'));
-  const dias = [...new Set(elegiveis.map(r => r.referencia).filter(Boolean))].sort();
   atualizarOpcoes('dia', dias, v => v.slice(8,10)+'/'+v.slice(5,7)+'/'+v.slice(0,4));
 }
 
@@ -106,7 +161,7 @@ function renderizar() {
   const pendentes = total - executadas;
   const percentual = total ? Math.round(100 * executadas / total) : 0;
   const datas = [...new Set(registros.map(r => r.referencia).filter(Boolean))].sort();
-  const algumFiltro = Object.keys(controles).some(k => valorFiltro(k));
+  const algumFiltro = Object.keys(controles).some(k => selecoes[k].size > 0);
   const semData = registros.filter(r => !r.referencia).length;
   el('previstas').textContent = fmt(total);
   el('executadas').textContent = fmt(executadas);
@@ -165,13 +220,22 @@ async function atualizarDados() {
 }
 
 Object.entries(controles).forEach(([chave,id]) => {
-  el(id).addEventListener('change', () => {
+  el(id).addEventListener('click', () => alternarMenu(chave));
+  el(`options-${chave}`).querySelector('.multi-clear').addEventListener('click', () => {
+    selecoes[chave].clear();
     atualizarFiltros();
     renderizar();
   });
 });
+document.addEventListener('click', evento => {
+  if (!evento.target.closest('.multi-filter')) fecharMenus();
+});
+document.addEventListener('keydown', evento => {
+  if (evento.key === 'Escape') fecharMenus();
+});
 el('clear-filters').addEventListener('click', () => {
-  Object.values(controles).forEach(id => { el(id).value = ''; });
+  Object.values(selecoes).forEach(conjunto => conjunto.clear());
+  fecharMenus();
   atualizarFiltros();
   renderizar();
 });

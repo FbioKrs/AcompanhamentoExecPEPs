@@ -14,3 +14,14 @@ Registros sem REFERENCIA válida aparecem no consolidado sem filtro de data, mas
 IMPORTANTE: o JSON incluído é o mesmo que estava no ZIP anterior, sem o novo campo REFERENCIA.
 Substitua o arquivo Dados/DadosJson.json pela sua versão mais recente para habilitar os filtros temporais.
 Não exponha informações corporativas restritas em GitHub Pages público.
+
+
+FILTROS MULTISSELEÇÃO (V4)
+- Clique em Parceira, Ano, Mês, Semana ou Dia para abrir a lista de caixas de seleção.
+- Marque várias opções dentro do mesmo filtro (lógica OU).
+- Os diferentes filtros se combinam por interseção (lógica E).
+- "Limpar" dentro da lista limpa apenas o campo; "Limpar filtros" remove todas as seleções.
+- Indicadores, tabela e gráfico são calculados a partir dos mesmos registros filtrados.
+- As opções permanecem disponíveis independentemente de outros filtros selecionados.
+- REFERENCIA aceita YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY e serial Excel como número ou texto.
+- O JSON no ZIP foi preservado como recebido (não contém REFERENCIA). Substitua-o pela versão atualizada para habilitar os filtros de data.

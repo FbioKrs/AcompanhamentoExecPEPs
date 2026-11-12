@@ -17,7 +17,7 @@
 .content{padding-top:22px}
 .intro{margin-bottom:14px}
 .intro h1{font-size:32px}
-.filterbar{background:#fff;border:1px solid var(--stroke);border-radius:16px;padding:12px 17px 13px;margin-bottom:15px;box-shadow:0 5px 20px #0b37620a}
+.filterbar{position:relative;z-index:25;background:#fff;border:1px solid var(--stroke);border-radius:16px;padding:12px 17px 13px;margin-bottom:15px;box-shadow:0 5px 20px #0b37620a}
 .filterbar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:15px}
 .filter-title{font-size:12px;letter-spacing:.1em;font-weight:850;color:#1e638e}
 .filter-result{font-size:12px;font-weight:700;color:#58748c;white-space:nowrap}
@@ -38,3 +38,23 @@
 .panel-head{height:60px}
 .table-wrap{max-height:271px}
 .execution{padding-top:10px}
+
+/* Seleção múltipla: dropdown compacto com caixas de seleção. */
+.filter-label{display:block}
+.multi-filter{position:relative;min-width:0}
+.multi-trigger{display:flex;align-items:center;justify-content:space-between;gap:9px;height:38px;min-width:0;width:100%;border:1px solid #cbddea;border-radius:9px;background:#f8fbfe;padding:0 10px;color:#174b77;font:700 13px 'Segoe UI',Arial,sans-serif;cursor:pointer;text-align:left}
+.multi-trigger .multi-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.multi-trigger.has-selection{background:#e8f5fe;border-color:#62addb;color:#064f83}
+.multi-trigger:disabled{opacity:.55;cursor:not-allowed}
+.multi-trigger:focus-visible,.multi-clear:focus-visible,.multi-option:focus-within{outline:2px solid #45b2ec;outline-offset:2px}
+.multi-chevron{flex-shrink:0;font-size:13px}
+.multi-trigger[aria-expanded=true] .multi-chevron{transform:rotate(180deg)}
+.multi-menu{position:absolute;z-index:110;left:0;top:calc(100% + 5px);min-width:100%;width:max-content;max-width:295px;min-width:210px;background:#fff;border:1px solid #b8d6e9;border-radius:11px;box-shadow:0 16px 36px #153e6250;padding:9px;color:#1c456a;letter-spacing:normal;font-weight:500}
+.multi-menu[hidden]{display:none}
+.multi-menu-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 6px 9px;border-bottom:1px solid #e4eef6;font-size:12px}
+.multi-clear{border:0;background:#ecf6fc;border-radius:6px;color:#126ba1;padding:5px 9px;cursor:pointer;font:700 11px 'Segoe UI',Arial,sans-serif}
+.multi-items{max-height:222px;overflow:auto;padding-top:5px;scrollbar-width:thin}
+.multi-option{display:flex;align-items:center;gap:9px;padding:8px 7px;border-radius:7px;cursor:pointer;font-size:13px;white-space:nowrap}
+.multi-option:hover{background:#eef7fd}
+.multi-option input{width:16px;height:16px;accent-color:#0876bb;cursor:pointer;flex-shrink:0}
+.multi-empty{display:block;padding:12px;color:#72889c;font-size:12px}
